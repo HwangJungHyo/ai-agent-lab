@@ -1,0 +1,6 @@
+# 실습에 사용한 직접 의존성 목록. 사용자 PC의 정확한 버전 lock은 미수집.
+google-genai
+python-dotenv
+langchain
+langchain-google-genai
+langgraph

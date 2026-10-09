@@ -13,3 +13,15 @@
 9. [Langfuse 평가](https://langfuse.com/docs/evaluation/overview)
 10. [Langfuse 토큰과 비용](https://langfuse.com/docs/observability/features/token-and-cost-tracking)
 11. [LangGraph 중단과 재개](https://docs.langchain.com/oss/python/langgraph/interrupts)
+
+## 2026-10-07 실습에서 확인한 문서
+
+12. [Google Gen AI SDK: 수동 함수 호출과 AFC](https://googleapis.github.io/python-genai/)
+13. [Gemini API 문제 해결: 503과 재시도](https://ai.google.dev/gemini-api/docs/troubleshooting)
+14. [LangChain Gemini 통합](https://docs.langchain.com/oss/python/integrations/chat/google_generative_ai)
+15. [LangChain 도구: 타입과 설명문](https://docs.langchain.com/oss/python/langchain/tools)
+16. [LangChain 모델: tool_calls와 ToolMessage](https://docs.langchain.com/oss/python/langchain/models)
+17. [LangGraph Graph API](https://docs.langchain.com/oss/python/langgraph/graph-api)
+18. [BaseMessage 공식 소스](https://github.com/langchain-ai/langchain/blob/master/libs/core/langchain_core/messages/__init__.py)
+
+최신 문서 버전을 PC 설치 버전으로 간주하지 않는다. 실제 결과와 미검증 항목은 [증거 기록](evidence/2026-10-07-foundations.md)을 따른다.
