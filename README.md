@@ -6,13 +6,17 @@
 
 모든 실습의 중심은 **왜 필요한가 → 그래서 왜 이 방법인가 → 어떻게 확인할 것인가**입니다. [학습 원칙](docs/learning-principles.md)에 따라 개념과 선택 근거를 먼저 설명하고, 예상과 실제 결과를 비교해 판단 범위를 기록합니다.
 
-**현재 상태 (2026-10-07): Windows 가상환경, Gemini 첫 호출, mock 도구, SDK 도구 호출, LangChain·LangGraph 기본 분기 비교를 실습했습니다. 도구 재시도는 4개 비교 경로 중 3개를 확인했고, Python 버전의 일시 실패 후 복구 경로는 모델 API의 503으로 검증이 중단됐습니다. 실제 관측 데이터 연결, 체크포인트, Langfuse는 아직 진행하지 않았습니다.**
+**현재 상태 (2026-10-09): Gemini와 로컬 Qwen3.5-9B로 mock 도구 호출·분기·재시도를 확인했습니다. 모델 요약에서 필수 내용이 빠지는 문제를 관측해 사실 코드 출력과 모델 설명을 분리했습니다. 사용자 PC에서 모델 없는 검증 6개와 실제 Qwen + graph/separated의 flaky·empty·timeout을 확인했습니다. 코드의 사실 출력·종료 흐름은 예상과 일치했지만 모델 설명에는 부정확한 전제가 남았습니다. 실제 관측 데이터 연결, 체크포인트, Langfuse는 아직 진행하지 않았습니다.**
 
 ## 문서
 
 - [학습 원칙과 기록 구조](docs/learning-principles.md)
 - [2026-10-07 실습 기록: 목적·설계 이유·검증 결과·오류](docs/evidence/2026-10-07-foundations.md)
-- [실습 코드 5개와 재현 방법](examples/2026-10-07/README.md)
+- [2026-10-09 모델 HTTP 재시도와 도구 재시도 구분](docs/evidence/2026-10-09-model-retry.md)
+- [2026-10-09 Ollama·로컬 Qwen 연결과 장비 관측](docs/evidence/2026-10-09-local-models.md)
+- [2026-10-09 요약 지시 비교와 정보 누락·표현 문제](docs/evidence/2026-10-09-local-summary.md)
+- [2026-10-09 필수 사실 코드 출력·모델 설명 분리](docs/evidence/2026-10-09-facts-and-explanation.md)
+- [실습 코드와 재현 방법](examples/2026-10-07/README.md)
 - [전체 커리큘럼: 18회차와 완료 기준](docs/curriculum.md)
 - [구축 위치와 실행 워크플로우](docs/architecture.md)
 - [진행 체크리스트](docs/progress.md)
@@ -41,7 +45,18 @@
 
 [진행 기록과 다음 단계](docs/progress.md)를 먼저 확인합니다. 확인된 실행 환경은 Windows 11, Git Bash, Python 3.11.5의 `.venv`입니다. 폴더 이동만으로 가상환경이 활성화되지는 않으며 `source .venv/Scripts/activate`를 사용합니다. Docker와 실제 관측 서비스의 현재 가동 상태는 이번 실습에서 검증하지 않았습니다.
 
-LangChain과 LangGraph는 Python 애플리케이션에 설치하는 라이브러리입니다. Langfuse는 별도 서버를 구축합니다. 이번 실습 모델은 Gemini Developer API의 `gemini-3.1-flash-lite`입니다. 예제는 대화 코드를 복원한 것이며 사용자 PC 최신 파일의 복사본은 아닙니다. 정확한 설치 버전과 lock 파일은 아직 수집하지 않았습니다.
+LangChain과 LangGraph는 Python 애플리케이션에 설치하는 라이브러리입니다. Langfuse는 별도 서버를 구축합니다. Gemini Developer API의 `gemini-3.1-flash-lite`와 Ollama의 로컬 `qwen3.5:9b`를 실습했습니다. 초기 예제는 대화 코드 복원본이며 사용자 PC 최신 파일의 복사본은 아닙니다. 일부 패키지 버전과 후속 실행 결과는 증거 문서에 기록했지만 전체 의존성 lock은 아직 없습니다.
+
+현재 사용자 입구는 Git Bash에서 실행하는 Python 명령입니다. 프로그램의 질문은 order-api 조회로 고정돼 있습니다. Python이 도구 실행과 재시도·출력을 제어하고, Ollama가 Qwen 모델을 실행합니다. Qwen은 도구 요청과 설명을 생성합니다. 지금 도구는 가짜 데이터를 반환하며 실제 order-api나 Loki에 접속하지 않습니다. MCP와 자연어 입력 UI도 구성하지 않았습니다.
+
+저장소의 현재 실행 파일은 루트가 아닌 `examples/2026-10-07/`에 있습니다. 기존 다운로드 파일을 덮어쓰지 않고 저장소 버전을 실행하려면, 설치가 완료된 환경에서 프로젝트 루트 기준으로 아래를 사용합니다.
+
+```bash
+python examples/2026-10-07/local_workflows.py --check-report
+python -u examples/2026-10-07/local_workflows.py --model qwen3.5:9b --engine graph --scenario flaky --summary-style separated
+```
+
+첫 명령은 모델을 호출하지 않습니다. 두 번째는 실행 중인 Ollama와 다운로드된 Qwen이 필요합니다. 전체 준비 절차는 [예제 실행 안내](examples/2026-10-07/README.md)를 따릅니다.
 
 ## 향후 코드 배치
 

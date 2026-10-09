@@ -1,0 +1,7 @@
+# 로컬 Qwen/Ollama 예제용 직접 의존성. 전체 의존성 lock은 아니다.
+langchain
+langchain-core
+langgraph
+langchain-ollama==1.1.0
+ollama
+httpx
