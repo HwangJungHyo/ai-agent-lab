@@ -12,8 +12,9 @@
 | compare_workflows.py | 동일 부품을 Python 순서문 / LangGraph로 연결 |
 | retry_workflows.py | 도구만 최대 2회 실행; 복구·상한 종료 비교 |
 | model_retry_workflows.py | Gemini 모델 HTTP 503 재시도와 도구 재시도 분리; --check-retry 포함 |
-| local_workflows.py | Ollama/Qwen 연결; original/explicit/separated 보고 방식 |
+| local_workflows.py | Ollama/Qwen + mock/Loki 도구; Loki는 separated 보고 방식 |
 | test_local_workflows.py | 가짜 HTTP로 사실 보존·설명 실패·기존 실행 경로 확인 |
+| test_loki_workflows.py | 실제 그래프·SDK + HTTP 대역으로 새 Loki 연결 검사 |
 | .env.example | 비밀값 없는 설정 이름과 당시 모델 ID |
 | requirements.txt | Gemini 예제 직접 의존성 목록; 버전 lock은 아님 |
 | requirements-local.txt | 로컬 Ollama 예제 직접 의존성 목록; 전체 lock은 아님 |
@@ -125,3 +126,43 @@ python -m unittest test_local_workflows -v
 ```
 
 위 명령은 이 예제 폴더에서 실행한다. 사용자 PC 루트에 파일을 복사해 실행해 온 경우 기존 `local_workflows.py`를 수정본으로 교체한다. `test_local_workflows.py`는 별도 환경의 가짜 HTTP 검증용이며 실제 모델 설명 품질을 평가하지 않는다. 필수 사실을 코드로 표시해도 모델 설명의 모순이 자동으로 검출되지는 않는다.
+
+## 2026-10-10 후속: 기존 그래프에 Loki 연결
+
+[새 연결의 이유·최소 증거·종료 기준](../../docs/evidence/2026-10-10-loki-graph.md)을 따른다. 기본 --source는 mock이며 기존 명령은 유지된다. Loki는 --source loki와 조회 조건을 지정하고 --scenario를 생략한다. Loki의 기본 보고 방식은 separated이며 다른 방식은 받지 않는다.
+
+PC 루트에서는 수정된 local_workflows.py와 loki_query.py를 같은 폴더에 적용한다. 저장소 예제 경로로 실행하면 ../2026-10-10/loki_query.py를 불러온다. 새 패키지 설치는 요구하지 않는다.
+
+```bash
+python -u local_workflows.py --model qwen3.5:9b --engine graph --source loki \
+  --service order-api --start 2026-10-10T03:48:00Z --end 2026-10-10T03:50:00Z \
+  --request-id agent-loki-20261010T034854Z-7943 --limit 20 --summary-style separated
+```
+
+확인된 정상 로그 한 줄을 재사용해 새 연결을 대조한다. request 단계에서 get_logs 요청, execute 결과의 source=loki, 코드 사실의 범위·원문·줄 수, 모델 설명의 근거 준수를 본다. 이 네 위치가 맞으면 같은 사례의 반복 실행을 멈춘다. 조회 timeout은 총 2회까지 동일 범위를 재시도하며 HTTP 503은 현재 종료한다.
+
+최신 조회에는 --start/--end 대신 --minutes 10을 사용한다. --errors-only는 JSON level=error 조건을 추가한다. --loki-timeout은 Loki I/O 제한이며 --timeout은 Ollama I/O 제한이다. 서비스 payment-api는 mock 전용, payment는 실제 Loki 전용이다. 지금은 모델이 service 인자만 생성하고 조회 기간·필터·상한은 코드가 설정한다.
+
+## 자연어 조회 입구 (2026-10-10)
+
+`natural_request.py`를 새로 추가하고 `local_workflows.py`에 `--question`과 `--run-query`를 연결했다. PC에서는 `local_workflows.py`, `natural_request.py`, `loki_query.py`가 같은 폴더에 있어야 한다. 추가 패키지 설치는 필요하지 않다.
+
+모델은 조회 조건만 제안한다. 코드는 대상·시간·필터·미해결 조건을 검증하고 기본적으로 조건만 표시한다. `--run-query`는 이번 실행에서 검증된 제안을 바로 실행한다. 이전 미리보기의 제안을 승인·저장·재개하는 기능은 아니므로 재실행 시 제안과 시간이 달라질 수 있다.
+
+```bash
+python -u local_workflows.py --model qwen3.5:9b --engine graph --source loki \
+  --question 'order-api의 최근 10분 오류 로그를 확인해줘'
+
+python -u local_workflows.py --model qwen3.5:9b --engine graph --source loki \
+  --question '아까 결제가 이상했어'
+```
+
+첫 명령은 `order-api`, `10`, `true`, 미해결 조건 없음과 조회 조건을 확인한다. 둘째는 대상·시간·증상을 함께 묻고 조회하지 않아야 한다. 추가 질문은 출력하고 종료한다(코드 2). 보완한 전체 질문으로 다시 실행한다. 대화 세션 저장은 없다.
+
+명확한 요청을 실제 조회하려면 첫 명령에 `--run-query`를 붙인다. 조건을 표시하고 조회하며, 실패하지 않는 경우 해석·설명 모델 호출은 총 2회다. 기존의 고정 시각 CLI 조회도 사용할 수 있다. 자연어 입구는 최근 1~60분만 지원하고 대상/시간/요청 ID 필터 CLI 옵션과 혼합하지 않는다.
+
+코드의 형식 검증은 사용자 의도와 모델 해석의 일치까지 보장하지 않는다. [기준·검증·한계](../../docs/evidence/2026-10-10-natural-request.md)를 구분한다.
+
+23:26 KST 출력 반영: 서비스 별칭 매핑은 지원하지 않으며 질문에 정확한 `order-api` 또는 `payment` 이름 하나가 있어야 한다. 모델의 자료형 오류는 제안을 표시하고 조회 없이 안내·종료한다. 모델 지시 보강의 실제 효과는 PC 확인 대상이다.
+
+23:30 KST 후속 정책: 실제 모델이 반환한 숫자 문자열과 true/True/false/False 문자열만 정규화하고 기존 범위 검증을 적용한다. 원래 제안과 변환 내역은 표시하며, 의미 추정·누락 보정·범위 축소는 하지 않는다. 모호한 요청의 실제 PC 분기는 확인됐으므로 명확한 미리보기만 재확인한다.
